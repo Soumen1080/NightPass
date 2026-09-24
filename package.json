@@ -4,7 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "next dev",
+    "dev": "npm run sync:assets && next dev",
     "build": "npm run sync:assets && next build",
     "start": "next start",
     "compact": "npm run compact --prefix contract",
