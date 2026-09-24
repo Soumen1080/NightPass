@@ -1,0 +1,10 @@
+node_modules
+/.next/
+/out/
+/build
+.env
+.env*.local
+/prisma/migrations/
+# /contract/src/managed/
+# /public/zk/
+.env.local

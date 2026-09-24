@@ -1,0 +1,12 @@
+node_modules
+.next
+out
+build
+.git
+.github
+.env
+.env.*
+!.env.example
+coverage
+prisma/migrations
+tsconfig.tsbuildinfo

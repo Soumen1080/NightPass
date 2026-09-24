@@ -1,0 +1,35 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Party {
+  id              String   @id @default(uuid())
+  contractAddress String   @unique
+  organizerAddress String
+  name            String
+  description     String?
+  entryFee        Float    @default(0)
+  deadline        DateTime?
+  txHash          String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  rsvps           RSVP[]
+}
+
+model RSVP {
+  id              String   @id @default(uuid())
+  partyId         String
+  party           Party    @relation(fields: [partyId], references: [id], onDelete: Cascade)
+  attendeeAddress String
+  commitmentHash  String   // The hash of the commitment submitted to the contract
+  attendeeName    String?  // Optional off-chain friendly name
+  txHash          String?
+  createdAt       DateTime @default(now())
+
+  @@unique([partyId, commitmentHash])
+}
