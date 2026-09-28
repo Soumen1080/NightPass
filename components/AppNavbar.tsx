@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useWallet } from '@/lib/WalletContext';
+import FeedbackModal from '@/components/FeedbackModal';
 import { 
   Sparkles, 
   Menu, 
@@ -15,7 +16,8 @@ import {
   CalendarPlus, 
   Ticket, 
   LayoutDashboard,
-  Wallet
+  Wallet,
+  MessageSquarePlus
 } from 'lucide-react';
 
 export default function AppNavbar() {
@@ -23,6 +25,7 @@ export default function AppNavbar() {
   const { session, busy, connect, disconnect } = useWallet();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [feedbackOpen, setFeedbackOpen] = useState(false);
 
   const navLinks = [
     { href: '/app', label: 'Dashboard', icon: LayoutDashboard },
@@ -138,6 +141,18 @@ export default function AppNavbar() {
             </button>
           )}
 
+          {/* Feedback Button */}
+          <button
+            type="button"
+            onClick={() => setFeedbackOpen(true)}
+            className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs text-zinc-400 hover:text-purple-300 border border-white/10 hover:border-purple-500/30 bg-white/5 hover:bg-purple-950/20 transition-all"
+            title="Share feedback"
+            id="navbar-feedback-btn"
+          >
+            <MessageSquarePlus className="w-3.5 h-3.5" />
+            <span>Feedback</span>
+          </button>
+
           {/* Mobile Hamburger Toggle */}
           <button
             type="button"
@@ -149,6 +164,13 @@ export default function AppNavbar() {
           </button>
         </div>
       </div>
+
+      {/* Feedback Modal */}
+      <FeedbackModal
+        isOpen={feedbackOpen}
+        onClose={() => setFeedbackOpen(false)}
+        walletAddress={session?.unshieldedAddress}
+      />
 
       {/* Mobile Drawer */}
       {mobileMenuOpen && (
