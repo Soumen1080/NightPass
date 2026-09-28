@@ -1,7 +1,7 @@
 import { createUnprovenDeployTx, submitCallTxAsync, submitTxAsync } from '@midnight-ntwrk/midnight-js-contracts';
 import { getCompiledContract, getLedger, sampleSigningKey, ContractState } from '../contract/src/index';
 import type { ConnectedSession } from './midnight';
-import { fromHex, pollForState, CRYPTO_NETWORK } from './midnight';
+import { fromHex, pollForState, CRYPTO_NETWORK, getDefaultIndexerUri } from './midnight';
 import { bech32ToUserAddress } from './address';
 
 const PRIVATE_STATE_ID = 'PrivatePartyState';
@@ -54,6 +54,14 @@ export async function deployParty(
     contractAddress,
     deployTxData.private.signingKey,
   );
+
+  // Poll for the newly deployed contract on the indexer with enough retries to confirm block inclusion
+  try {
+    await pollForState(session.config.indexerUri, contractAddress, { retries: 25, delayMs: 1500 });
+  } catch (pollErr) {
+    console.warn('Initial post-deploy poll warning (contract will index shortly):', pollErr);
+  }
+
   return contractAddress;
 }
 
@@ -96,22 +104,32 @@ export const claimFees = (session: ConnectedSession, contractAddress: string, or
   call(session, contractAddress, 'claimFees', [organizerAddress, organizerSecret]);
 
 export async function decodePartyState(stateHex: string) {
-  const contractState = ContractState.deserialize(fromHex(stateHex));
-  const ledger = await getLedger();
-  const l = ledger(contractState.data) as any;
-  const stateIdx = Number(l.partyState);
-  return {
-    partyState: PARTY_STATE_NAMES[stateIdx] ?? `UNKNOWN(${stateIdx})`,
-    partyStateIndex: stateIdx,
-    maxListSize: Number(l.maxListSize),
-    entryFee: Number(l.entryFee),
-    rsvpCount: setSize(l.hashedPartyGoers),
-    checkedInCount: setSize(l.checkedInParty),
-  };
+  try {
+    const contractState = ContractState.deserialize(fromHex(stateHex));
+    const ledger = await getLedger();
+    const l = ledger(contractState.data) as any;
+    const stateIdx = Number(l.partyState);
+    return {
+      partyState: PARTY_STATE_NAMES[stateIdx] ?? `UNKNOWN(${stateIdx})`,
+      partyStateIndex: stateIdx,
+      maxListSize: Number(l.maxListSize),
+      entryFee: Number(l.entryFee),
+      rsvpCount: setSize(l.hashedPartyGoers),
+      checkedInCount: setSize(l.checkedInParty),
+    };
+  } catch (err: any) {
+    throw new Error(`Failed to decode on-chain contract state: ${err?.message || err}`);
+  }
 }
 
-export async function fetchPartyState(queryUrl: string, contractAddress: string) {
-  const hex = await pollForState(queryUrl, contractAddress);
+export async function fetchPartyState(
+  queryUrl?: string,
+  contractAddress?: string,
+  options?: { retries?: number; delayMs?: number },
+) {
+  if (!contractAddress) throw new Error('Contract address is required');
+  const endpoint = queryUrl || getDefaultIndexerUri();
+  const hex = await pollForState(endpoint, contractAddress, options ?? { retries: 2, delayMs: 800 });
   return decodePartyState(hex);
 }
 

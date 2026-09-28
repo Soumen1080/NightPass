@@ -23,7 +23,15 @@ export async function POST(request: Request) {
     });
 
     return NextResponse.json(party);
-  } catch (error) {
+  } catch (error: any) {
+    // Handle unique constraint (party with this contractAddress already exists)
+    if (error?.code === 'P2002') {
+      const existing = await prisma.party.findUnique({
+        where: { contractAddress: (await request.clone().json()).contractAddress },
+        include: { _count: { select: { rsvps: true } } },
+      });
+      if (existing) return NextResponse.json(existing);
+    }
     console.error('Error creating party:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
@@ -55,7 +63,13 @@ export async function GET(request: Request) {
       return NextResponse.json(parties);
     }
 
-    return NextResponse.json({ error: 'Missing query parameters' }, { status: 400 });
+    // Default: Return recent public parties so users can discover events without guessing addresses
+    const publicParties = await prisma.party.findMany({
+      orderBy: { createdAt: 'desc' },
+      take: 20,
+      include: { _count: { select: { rsvps: true } } },
+    });
+    return NextResponse.json(publicParties);
   } catch (error) {
     console.error('Error fetching parties:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });

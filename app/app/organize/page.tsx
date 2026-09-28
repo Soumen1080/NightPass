@@ -28,9 +28,8 @@ import {
   Clock, 
   ShieldCheck, 
   RefreshCw,
-  ExternalLink,
   Info,
-  Calendar
+  Wallet
 } from 'lucide-react';
 
 type PartyRecord = {
@@ -45,7 +44,7 @@ type PartyRecord = {
 };
 
 export default function OrganizePage() {
-  const { session, busy: walletBusy } = useWallet();
+  const { session, busy: walletBusy, error: walletError, connect } = useWallet();
   const [activeTab, setActiveTab] = useState<'create' | 'manage'>('create');
   const [contractAddress, setContractAddress] = useState('');
   
@@ -81,10 +80,11 @@ export default function OrganizePage() {
   }, [session]);
 
   const refresh = useCallback(async () => {
-    if (!session || !contractAddress) return;
+    if (!contractAddress) return;
     setRefreshing(true);
     try {
-      setStatus(await fetchPartyState(session.config.indexerUri, contractAddress));
+      const indexerUri = session?.config?.indexerUri;
+      setStatus(await fetchPartyState(indexerUri, contractAddress, { retries: 2, delayMs: 800 }));
     } catch (e) {
       console.error('Failed to fetch party state', e);
     } finally {
@@ -95,10 +95,8 @@ export default function OrganizePage() {
   useEffect(() => { void refreshParties(); }, [refreshParties]);
   useEffect(() => { void refresh(); }, [refresh]);
 
-  // Set quick deadline helper
   const setQuickDeadline = (hours: number) => {
     const d = new Date(Date.now() + hours * 3600 * 1000);
-    // Format to YYYY-MM-DDTHH:mm for datetime-local
     const offset = d.getTimezoneOffset() * 60000;
     const localISOTime = new Date(d.getTime() - offset).toISOString().slice(0, 16);
     setDeadline(localISOTime);
@@ -127,7 +125,10 @@ export default function OrganizePage() {
   }
 
   const onDeploy = () => guard('Deploy Party Contract', async () => {
-    if (!session) throw new Error('Wallet not connected');
+    if (!session) {
+      await connect();
+      return;
+    }
     const secret = generateSecret();
     const addr = await deployParty(session, Number(partySize), Number(entryFee), secret);
     
@@ -177,23 +178,6 @@ export default function OrganizePage() {
     setCopiedAddr(true);
     setTimeout(() => setCopiedAddr(false), 2000);
   };
-
-  if (!session) {
-    return (
-      <div className="flex-1 flex flex-col items-center justify-center px-4 max-w-lg mx-auto text-center py-20">
-        <div className="glass-panel p-8 w-full border-purple-500/30">
-          <Crown className="w-12 h-12 text-purple-400 mx-auto mb-4" />
-          <h2 className="text-2xl font-display font-bold text-white mb-2">Organizer Access Required</h2>
-          <p className="text-zinc-400 text-sm mb-6">
-            Please connect your Midnight 1AM Wallet to deploy and manage private events.
-          </p>
-          <Link href="/app" className="btn-primary w-full text-sm">
-            ← Return to Dashboard
-          </Link>
-        </div>
-      </div>
-    );
-  }
 
   const selectedParty = myParties.find(p => p.contractAddress === contractAddress);
 
@@ -245,6 +229,29 @@ export default function OrganizePage() {
           </button>
         </div>
       </div>
+
+      {/* Disconnected Notification Banner */}
+      {!session && (
+        <div className="mb-8 p-4 sm:p-5 rounded-2xl bg-gradient-to-r from-purple-950/40 to-cyan-950/40 border border-purple-500/30 flex flex-col sm:flex-row items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-purple-500/20 border border-purple-500/40 flex items-center justify-center text-purple-300">
+              <Wallet className="w-5 h-5" />
+            </div>
+            <div>
+              <h3 className="text-sm font-bold text-white">Wallet Not Connected</h3>
+              <p className="text-xs text-zinc-400">Configure your event now and connect your 1AM wallet when ready to deploy.</p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={connect}
+            disabled={isBusy}
+            className="btn-primary text-xs py-2.5 px-5 shrink-0"
+          >
+            {walletBusy ? 'Connecting...' : 'Connect 1AM Wallet'}
+          </button>
+        </div>
+      )}
 
       {/* ── TAB 1: CREATE EVENT WITH LIVE PASS PREVIEW ─────────────── */}
       {activeTab === 'create' && (
@@ -407,7 +414,13 @@ export default function OrganizePage() {
                 className="btn-primary w-full py-4 text-sm mt-4 shadow-[0_0_30px_rgba(168,85,247,0.4)]"
               >
                 <Crown className="w-4 h-4" />
-                <span>{isBusy ? 'Deploying to Midnight...' : 'Deploy Smart Contract'}</span>
+                <span>
+                  {isBusy 
+                    ? 'Deploying to Midnight...' 
+                    : !session 
+                    ? 'Connect Wallet to Deploy' 
+                    : 'Deploy Smart Contract'}
+                </span>
               </button>
             </div>
           </div>
@@ -424,7 +437,7 @@ export default function OrganizePage() {
 
             <TicketPass
               eventName={partyName || 'My Midnight Event'}
-              organizerAddress={session.unshieldedAddress}
+              organizerAddress={session?.unshieldedAddress || 'Midnight Organizer'}
               contractAddress="midnight1mockaddresspreview9876543210"
               entryFee={entryFee || 0}
               maxGuests={partySize || 20}
@@ -449,8 +462,23 @@ export default function OrganizePage() {
       {activeTab === 'manage' && (
         <div className="space-y-8">
           
-          {/* Hosted Events Grid */}
-          {myParties.length === 0 ? (
+          {!session ? (
+            <div className="glass-panel p-12 text-center max-w-lg mx-auto border-purple-500/30 space-y-4">
+              <Crown className="w-12 h-12 text-purple-400 mx-auto" />
+              <h3 className="text-xl font-display font-bold text-white">Connect to View Hosted Events</h3>
+              <p className="text-zinc-400 text-sm">
+                Connect your Midnight 1AM Wallet to sync your deployed party contracts.
+              </p>
+              <button
+                type="button"
+                onClick={connect}
+                disabled={isBusy}
+                className="btn-primary text-xs py-2.5 px-5"
+              >
+                {walletBusy ? 'Connecting...' : 'Connect 1AM Wallet'}
+              </button>
+            </div>
+          ) : myParties.length === 0 ? (
             <div className="glass-panel p-12 text-center max-w-lg mx-auto border-white/10 space-y-4">
               <Crown className="w-12 h-12 text-zinc-600 mx-auto" />
               <h3 className="text-xl font-display font-bold text-white">No Hosted Events Yet</h3>
@@ -510,7 +538,7 @@ export default function OrganizePage() {
                 })}
               </div>
 
-              {/* Event Mission Control Panel (When an event is selected) */}
+              {/* Event Mission Control Panel */}
               {contractAddress && (
                 <div className="glass-panel p-6 sm:p-8 border-purple-500/40 space-y-6 shadow-2xl relative overflow-hidden">
                   <div className="absolute top-0 right-0 w-64 h-64 bg-purple-500/10 rounded-bl-full blur-3xl pointer-events-none" />
@@ -523,7 +551,7 @@ export default function OrganizePage() {
                           {selectedParty?.name || 'Party Mission Control'}
                         </h2>
                         {status && (
-                          <span className={`badge-glow-purple text-[10px]`}>
+                          <span className="badge-glow-purple text-[10px]">
                             {status.partyState.replace(/_/g, ' ')}
                           </span>
                         )}
@@ -679,7 +707,7 @@ export default function OrganizePage() {
             </button>
           </div>
           {txHistory.map((tx) => (
-            <TxCard key={tx.id} tx={tx} network={session.config.networkId} />
+            <TxCard key={tx.id} tx={tx} network={session?.config?.networkId || 'preprod'} />
           ))}
         </div>
       )}

@@ -6,19 +6,19 @@ import { setNetworkId } from '@midnight-ntwrk/midnight-js-network-id';
 export type NetworkName = 'preprod' | 'preview';
 
 export const DEFAULT_NETWORK: NetworkName =
-  (typeof process !== 'undefined' && process.env?.NEXT_PUBLIC_NETWORK_ID as NetworkName) || 'preview';
+  (typeof process !== 'undefined' && process.env?.NEXT_PUBLIC_NETWORK_ID as NetworkName) || 'preprod';
 
-// CRYPTO_NETWORK must match DEFAULT_NETWORK — previously hardcoded to 'preview'
-// which caused a mismatch when .env.local set NEXT_PUBLIC_NETWORK_ID=preprod.
 export const CRYPTO_NETWORK: NetworkName = DEFAULT_NETWORK;
 
-// Do NOT call setNetworkId at module level — it uses SDK internals that can
-// crash during SSR / static generation.  We call it lazily in createConnectedSession.
 let _networkIdSet = false;
-function ensureNetworkId() {
+export function ensureNetworkId() {
   if (!_networkIdSet) {
-    setNetworkId(CRYPTO_NETWORK);
-    _networkIdSet = true;
+    try {
+      setNetworkId(CRYPTO_NETWORK);
+      _networkIdSet = true;
+    } catch (e) {
+      console.warn('Network ID already configured or error setting network ID:', e);
+    }
   }
 }
 
@@ -29,7 +29,7 @@ export interface NetworkConfig {
   proofServerUri: string;
 }
 
-const NETWORKS: Record<NetworkName, NetworkConfig> = {
+export const NETWORKS: Record<NetworkName, NetworkConfig> = {
   preprod: {
     networkId: 'preprod',
     indexerUri: 'https://indexer.preprod.midnight.network/api/v4/graphql',
@@ -43,6 +43,10 @@ const NETWORKS: Record<NetworkName, NetworkConfig> = {
     proofServerUri: 'https://proof-server.preview.midnight.network',
   },
 };
+
+export function getDefaultIndexerUri(): string {
+  return NETWORKS[DEFAULT_NETWORK]?.indexerUri || 'https://indexer.preprod.midnight.network/api/v4/graphql';
+}
 
 export interface ConnectedSession {
   unshieldedAddress: string;
@@ -58,7 +62,7 @@ export interface ConnectedSession {
   walletApi: any;
 }
 
-// ─── helpers ────────────────────────────────────────────────────────────────
+// ─── Helpers ────────────────────────────────────────────────────────────────
 
 export function toHex(bytes: Uint8Array): string {
   return Array.from(bytes)
@@ -76,21 +80,20 @@ export function fromHex(hex: string): Uint8Array {
 }
 
 /**
- * Detect and return the Midnight wallet API from window.midnight.
- * Includes a configurable timeout so the UI doesn't hang forever
- * if the wallet extension hasn't injected yet.
+ * Detect and return Midnight wallet API from window.midnight.
+ * Checks for 1AM, Lace (mnLace), or any injected provider.
  */
-export async function detectWallet(timeoutMs = 5000): Promise<any> {
+export async function detectWallet(timeoutMs = 4000): Promise<any> {
   if (typeof window === 'undefined') {
-    throw new Error('Wallet detection can only run in the browser');
+    throw new Error('Wallet detection can only run in the browser.');
   }
 
-  // Some wallets inject slightly after DOMContentLoaded.  Give them a moment.
   const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {
     const w = (window as any).midnight;
     if (w) {
       if (w['1am']) return w['1am'];
+      if (w['mnLace']) return w['mnLace'];
       const first = Object.values(w)[0];
       if (first) return first;
     }
@@ -98,11 +101,11 @@ export async function detectWallet(timeoutMs = 5000): Promise<any> {
   }
 
   throw new Error(
-    'No Midnight-compatible wallet found. Please install and unlock the 1AM wallet extension, then refresh the page.',
+    'No Midnight wallet detected. Please install and unlock the 1AM or Lace wallet extension, then refresh.'
   );
 }
 
-// ─── private state provider ─────────────────────────────────────────────────
+// ─── Private State Provider ─────────────────────────────────────────────────
 
 function createPrivateStateProvider() {
   const store = new Map<string, unknown>();
@@ -119,22 +122,22 @@ function createPrivateStateProvider() {
   };
 }
 
-
-// ─── poll for state ──────────────────────────────────────────────────────────
+// ─── Poll / Query For State ─────────────────────────────────────────────────
 
 export async function pollForState(
   queryUrl: string,
   contractAddress: string,
-  { retries = 20, delayMs = 1500 }: { retries?: number; delayMs?: number } = {},
+  { retries = 3, delayMs = 1000 }: { retries?: number; delayMs?: number } = {},
 ): Promise<string> {
   let lastError: string | null = null;
+  const endpoint = queryUrl || getDefaultIndexerUri();
 
   for (let i = 0; i < retries; i++) {
     try {
       const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 10000);
+      const timeout = setTimeout(() => controller.abort(), 8000);
 
-      const res = await fetch(queryUrl, {
+      const res = await fetch(endpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         signal: controller.signal,
@@ -157,7 +160,6 @@ export async function pollForState(
           const state = json?.data?.contractAction?.state;
           if (state) return state as string;
 
-          // Capture GraphQL-level errors
           if (json?.errors?.length) {
             lastError = json.errors[0].message;
           }
@@ -166,37 +168,50 @@ export async function pollForState(
         lastError = `HTTP ${res.status}`;
       }
     } catch (e: any) {
-      lastError = e?.message ?? String(e);
-      console.warn(`pollForState attempt ${i + 1}/${retries} error:`, lastError);
+      lastError = e?.name === 'AbortError' ? 'Request timed out' : e?.message ?? String(e);
     }
-    await new Promise((r) => setTimeout(r, delayMs));
+
+    if (i < retries - 1) {
+      await new Promise((r) => setTimeout(r, delayMs));
+    }
   }
+
   throw new Error(
-    `Timed out waiting for contract state at ${contractAddress}` +
-    (lastError ? ` (last error: ${lastError})` : ''),
+    `No contract state found at address "${contractAddress}".` +
+    (lastError ? ` (${lastError})` : '')
   );
 }
 
-// ─── createConnectedSession ──────────────────────────────────────────────────
+// ─── Create Connected Session ───────────────────────────────────────────────
 
 export async function createConnectedSession(
   walletApi: any,
   zkPath: string,
   network: NetworkName = DEFAULT_NETWORK,
 ): Promise<ConnectedSession> {
-  // Ensure the crypto network ID is set before any SDK operations
   ensureNetworkId();
 
-  const config = NETWORKS[network];
+  const config = { ...NETWORKS[network] };
   if (!config) {
     throw new Error(`Unknown network "${network}". Expected "preprod" or "preview".`);
+  }
+
+  // Attempt to use custom configuration from wallet if available
+  if (typeof walletApi.getConfiguration === 'function') {
+    try {
+      const walletConfig = await walletApi.getConfiguration();
+      if (walletConfig?.indexerUri) config.indexerUri = walletConfig.indexerUri;
+      if (walletConfig?.indexerWsUri) config.indexerWsUri = walletConfig.indexerWsUri;
+      if (walletConfig?.proofServerUri) config.proofServerUri = walletConfig.proofServerUri;
+    } catch {
+      // Use defaults
+    }
   }
 
   let coinPublicKeyStr = '';
   let encPublicKeyStr = '';
   let unshieldedAddress = '';
 
-  // Retry loop — wallet may be syncing on first connect
   for (let retries = 5; retries > 0; retries--) {
     try {
       if (typeof walletApi.getShieldedAddresses === 'function') {
@@ -231,18 +246,15 @@ export async function createConnectedSession(
       break;
     } catch (err: any) {
       if (retries === 1) throw err;
-      console.warn(`Wallet not ready, retrying… (${retries - 1} left)`, err?.message);
       await new Promise((r) => setTimeout(r, 1000));
     }
   }
 
-  // ── ZK config provider ───────────────────────────────────────────────────
-  const zkConfigUrl = new URL(zkPath, window.location.origin).toString();
+  // Safe origin resolution
+  const origin = typeof window !== 'undefined' ? window.location.origin : 'http://localhost:3000';
+  const zkConfigUrl = new URL(zkPath, origin).toString();
   const zkConfigProvider = new FetchZkConfigProvider(zkConfigUrl, fetch.bind(globalThis));
 
-  // ── Proof provider — delegate proving to the 1AM wallet ─────────────────
-  //    getProvingProvider bridges our ZK keys into the wallet's WASM prover.
-  //    The wallet popup fires during prove() when the user is asked to confirm.
   const keyMaterialProvider = {
     getZKIR: (loc: string) =>
       zkConfigProvider.getZKIR(loc as any) as Promise<Uint8Array>,
@@ -251,25 +263,18 @@ export async function createConnectedSession(
     getVerifierKey: (loc: string) =>
       zkConfigProvider.getVerifierKey(loc as any) as Promise<Uint8Array>,
   };
+
   const provingProvider = await walletApi.getProvingProvider(keyMaterialProvider);
   const proofProvider = createProofProvider(provingProvider);
 
-  // ── Wallet provider ──────────────────────────────────────────────────────
-  //    balanceTx receives an UnboundTransaction (WASM object with .serialize()).
-  //    The wallet's balanceUnsealedTransaction expects a hex string, so we
-  //    serialize first. This is where the wallet popup will appear.
   const walletProvider = {
     getCoinPublicKey: () => coinPublicKeyStr,
     getEncryptionPublicKey: () => encPublicKeyStr,
 
     balanceTx: async (tx: any) => {
-      // Serialize the WASM UnboundTransaction → hex string
-      const serialized: Uint8Array = typeof tx.serialize === 'function'
-        ? tx.serialize()
-        : tx;
+      const serialized: Uint8Array = typeof tx.serialize === 'function' ? tx.serialize() : tx;
       const hexTx = toHex(serialized);
 
-      // Send to wallet for balancing + signing → triggers popup
       let result: any;
       if (typeof walletApi.balanceUnsealedTransaction === 'function') {
         result = await walletApi.balanceUnsealedTransaction(hexTx, { payFees: true });
@@ -280,7 +285,6 @@ export async function createConnectedSession(
       } else {
         throw new Error('No balance transaction method found on walletApi');
       }
-      // The wallet returns { tx: string } — extract the string
       return typeof result === 'string' ? result : result?.tx ?? result;
     },
 
@@ -289,7 +293,6 @@ export async function createConnectedSession(
     },
   };
 
-  // ── Midnight provider ─────────────────────────────────────────────────────
   const midnightProvider = {
     submitTx: async (tx: any) => {
       return walletApi.submitTransaction(typeof tx === 'string' ? tx : toHex(tx));

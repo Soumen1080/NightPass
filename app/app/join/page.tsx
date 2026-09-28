@@ -26,7 +26,9 @@ import {
   Coins, 
   Clock,
   DoorOpen,
-  Info
+  Info,
+  Wallet,
+  Compass
 } from 'lucide-react';
 
 type RsvpRecord = {
@@ -43,8 +45,19 @@ type RsvpRecord = {
   };
 };
 
+type PublicParty = {
+  id: string;
+  contractAddress: string;
+  name: string;
+  description: string | null;
+  entryFee: number;
+  deadline: string | null;
+  createdAt: string;
+  _count?: { rsvps: number };
+};
+
 export default function JoinPage() {
-  const { session, busy: walletBusy } = useWallet();
+  const { session, busy: walletBusy, error: walletError, connect } = useWallet();
   const [activeTab, setActiveTab] = useState<'join' | 'tickets'>('join');
   const [contractAddress, setContractAddress] = useState('');
   const [status, setStatus] = useState<Awaited<ReturnType<typeof fetchPartyState>> | null>(null);
@@ -56,12 +69,13 @@ export default function JoinPage() {
   const [fetchError, setFetchError] = useState(false);
   const [txHistory, setTxHistory] = useState<TxRecord[]>([]);
   const [myRsvps, setMyRsvps] = useState<RsvpRecord[]>([]);
+  const [publicParties, setPublicParties] = useState<PublicParty[]>([]);
   const [hasRsvpdLocal, setHasRsvpdLocal] = useState(false);
 
   const isBusy = walletBusy || busy;
   const isDeadlinePassed = partyDetails?.deadline ? new Date() > new Date(partyDetails.deadline) : false;
 
-  // Check localStorage for RSVP status safely (in useEffect, client only)
+  // Check localStorage for RSVP status safely in browser
   useEffect(() => {
     if (contractAddress && typeof window !== 'undefined') {
       setHasRsvpdLocal(!!loadSecret('attendee', contractAddress));
@@ -72,6 +86,22 @@ export default function JoinPage() {
 
   const hasRsvpdDb = myRsvps.some(r => r.party?.contractAddress === contractAddress);
   const hasRsvpd = hasRsvpdDb || hasRsvpdLocal;
+
+  // Load public parties for exploration
+  useEffect(() => {
+    const loadPublicParties = async () => {
+      try {
+        const res = await fetch('/api/parties');
+        if (res.ok) {
+          const list = await res.json();
+          setPublicParties(Array.isArray(list) ? list : []);
+        }
+      } catch (e) {
+        console.error('Failed to load public parties', e);
+      }
+    };
+    void loadPublicParties();
+  }, []);
 
   const refreshRsvps = useCallback(async () => {
     if (!session) return;
@@ -87,7 +117,7 @@ export default function JoinPage() {
   }, [session]);
 
   const refresh = useCallback(async () => {
-    if (!session || !contractAddress) {
+    if (!contractAddress) {
       setStatus(null);
       setPartyDetails(null);
       setFetchError(false);
@@ -96,7 +126,9 @@ export default function JoinPage() {
     setFetchError(false);
     setIsFetching(true);
     try {
-      const state = await fetchPartyState(session.config.indexerUri, contractAddress);
+      const indexerUri = session?.config?.indexerUri;
+      // Fetch on-chain state with fast fallback
+      const state = await fetchPartyState(indexerUri, contractAddress, { retries: 2, delayMs: 800 });
       setStatus(state);
       
       const dbRes = await fetch(`/api/parties?contractAddress=${encodeURIComponent(contractAddress)}`);
@@ -107,7 +139,7 @@ export default function JoinPage() {
         setPartyDetails(null);
       }
     } catch (e) {
-      console.error(e);
+      console.warn('Contract lookup failed:', e);
       setStatus(null);
       setPartyDetails(null);
       setFetchError(true);
@@ -142,7 +174,11 @@ export default function JoinPage() {
   }
 
   const onRsvp = () => guard('Zero-Knowledge RSVP', async () => {
-    if (!session || !contractAddress) return;
+    if (!session) {
+      await connect();
+      return;
+    }
+    if (!contractAddress) return;
     let secret = loadSecret('attendee', contractAddress);
     if (!secret) {
       secret = generateSecret();
@@ -172,28 +208,15 @@ export default function JoinPage() {
   });
 
   const onCheckIn = () => guard('Door Check-In & Fee Settlement', async () => {
-    if (!session || !contractAddress) return;
+    if (!session) {
+      await connect();
+      return;
+    }
+    if (!contractAddress) return;
     const secret = loadSecret('attendee', contractAddress);
     if (!secret) throw new Error('RSVP first — no attendee secret found for this contract');
     await checkIn(session, contractAddress, userAddressFromSession(session), secret);
   });
-
-  if (!session) {
-    return (
-      <div className="flex-1 flex flex-col items-center justify-center px-4 max-w-lg mx-auto text-center py-20">
-        <div className="glass-panel p-8 w-full border-cyan-500/30">
-          <Ticket className="w-12 h-12 text-cyan-400 mx-auto mb-4" />
-          <h2 className="text-2xl font-display font-bold text-white mb-2">Wallet Connection Required</h2>
-          <p className="text-zinc-400 text-sm mb-6">
-            Please connect your Midnight 1AM Wallet to access event tickets and generate zero-knowledge RSVPs.
-          </p>
-          <Link href="/app" className="btn-primary w-full text-sm">
-            ← Return to Dashboard
-          </Link>
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div className="w-full max-w-6xl mx-auto px-4 sm:px-6 fade-in pb-24">
@@ -226,7 +249,7 @@ export default function JoinPage() {
             }`}
           >
             <Search className="w-4 h-4" />
-            <span>Join with Contract</span>
+            <span>Explore &amp; Join</span>
           </button>
           
           <button
@@ -244,6 +267,29 @@ export default function JoinPage() {
         </div>
       </div>
 
+      {/* Wallet Connection Helper Banner if Disconnected */}
+      {!session && (
+        <div className="mb-8 p-4 sm:p-5 rounded-2xl bg-gradient-to-r from-purple-950/40 to-cyan-950/40 border border-cyan-500/30 flex flex-col sm:flex-row items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-cyan-500/20 border border-cyan-500/40 flex items-center justify-center text-cyan-300">
+              <Wallet className="w-5 h-5" />
+            </div>
+            <div>
+              <h3 className="text-sm font-bold text-white">Wallet Not Connected</h3>
+              <p className="text-xs text-zinc-400">Connect your Midnight 1AM Wallet to generate your cryptographic proof and RSVP.</p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={connect}
+            disabled={isBusy}
+            className="btn-primary text-xs py-2.5 px-5 shrink-0"
+          >
+            {walletBusy ? 'Connecting...' : 'Connect 1AM Wallet'}
+          </button>
+        </div>
+      )}
+
       {/* ── TAB 1: JOIN WITH CONTRACT ADDRESS ───────────────────────── */}
       {activeTab === 'join' && (
         <div className="space-y-8">
@@ -254,7 +300,7 @@ export default function JoinPage() {
               <Search className="w-5 h-5 text-cyan-400" />
               <div>
                 <h2 className="text-lg font-display font-bold text-white">Enter Event Contract Address</h2>
-                <p className="text-xs text-zinc-400">Paste the Midnight smart contract address provided by your organizer</p>
+                <p className="text-xs text-zinc-400">Paste the Midnight smart contract address or pick a featured event below</p>
               </div>
             </div>
 
@@ -277,20 +323,34 @@ export default function JoinPage() {
               )}
             </div>
 
-            {/* Quick Demo Contract Helper */}
-            {!contractAddress && myRsvps.length > 0 && (
-              <div className="pt-2 flex items-center gap-2 flex-wrap">
-                <span className="text-xs text-zinc-500">Quick load from your saved RSVPs:</span>
-                {myRsvps.slice(0, 3).map((r) => (
-                  <button
-                    key={r.id}
-                    type="button"
-                    onClick={() => setContractAddress(r.party.contractAddress)}
-                    className="text-[11px] px-3 py-1 rounded-lg bg-cyan-950/40 border border-cyan-500/30 text-cyan-300 hover:bg-cyan-900/40 transition-colors font-mono"
-                  >
-                    {r.party.name}
-                  </button>
-                ))}
+            {/* Quick Helper: Public Events or User RSVPs */}
+            {publicParties.length > 0 && !contractAddress && (
+              <div className="pt-3 border-t border-white/5 space-y-2">
+                <span className="text-xs font-semibold text-zinc-400 uppercase tracking-wider flex items-center gap-1.5">
+                  <Compass className="w-3.5 h-3.5 text-cyan-400" />
+                  Featured Events on Midnight
+                </span>
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+                  {publicParties.slice(0, 6).map((p) => (
+                    <button
+                      key={p.id}
+                      type="button"
+                      onClick={() => setContractAddress(p.contractAddress)}
+                      className="p-3 rounded-xl bg-black/40 border border-white/5 hover:border-cyan-500/40 text-left transition-all hover:-translate-y-0.5 group"
+                    >
+                      <div className="font-display font-bold text-sm text-white group-hover:text-cyan-300 transition-colors truncate">
+                        {p.name}
+                      </div>
+                      <div className="text-[11px] font-mono text-zinc-500 truncate mt-0.5">
+                        {p.contractAddress}
+                      </div>
+                      <div className="mt-2 flex items-center justify-between text-[10px] text-zinc-400 border-t border-white/5 pt-1.5">
+                        <span>{p.entryFee} Stars</span>
+                        <span>{p._count?.rsvps || 0} RSVPs</span>
+                      </div>
+                    </button>
+                  ))}
+                </div>
               </div>
             )}
           </div>
@@ -310,7 +370,7 @@ export default function JoinPage() {
               <AlertCircle className="w-8 h-8 text-rose-400 mx-auto" />
               <div className="text-base font-bold text-rose-200">Contract Not Found on Midnight Network</div>
               <p className="text-xs text-zinc-400 max-w-md mx-auto">
-                No active event contract matches this address on the current network. Please verify that the organizer deployed to the same network.
+                No active event contract matches this address. Please verify that the organizer deployed to the same network.
               </p>
               <button
                 type="button"
@@ -337,7 +397,7 @@ export default function JoinPage() {
                 </div>
 
                 <TicketPass
-                  eventName={partyDetails?.name || `Private Event`}
+                  eventName={partyDetails?.name || `Midnight Event`}
                   organizerAddress="Midnight Organizer"
                   contractAddress={contractAddress}
                   entryFee={status.entryFee}
@@ -392,7 +452,7 @@ export default function JoinPage() {
                     <button
                       type="button"
                       onClick={onRsvp}
-                      disabled={isBusy || status.partyState !== 'NOT_STARTED' || isDeadlinePassed || hasRsvpd}
+                      disabled={isBusy || (hasRsvpd ? false : (status.partyState !== 'NOT_STARTED' || isDeadlinePassed))}
                       className={`w-full py-3 px-4 rounded-xl text-xs font-bold transition-all ${
                         hasRsvpd
                           ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 cursor-default'
@@ -401,6 +461,8 @@ export default function JoinPage() {
                     >
                       {hasRsvpd 
                         ? '✓ Spot Secured Anonymously' 
+                        : !session
+                        ? 'Connect Wallet to RSVP'
                         : isDeadlinePassed 
                         ? 'RSVP Deadline Passed' 
                         : status.partyState !== 'NOT_STARTED'
@@ -443,6 +505,8 @@ export default function JoinPage() {
                           ? 'Doors Not Open Yet'
                           : !hasRsvpd
                           ? 'Must RSVP First'
+                          : !session
+                          ? 'Connect Wallet to Check In'
                           : `Check In (${status.entryFee} Stars)`}
                       </span>
                     </button>
@@ -467,7 +531,23 @@ export default function JoinPage() {
       {/* ── TAB 2: MY DIGITAL VIP PASSES ───────────────────────────── */}
       {activeTab === 'tickets' && (
         <div className="space-y-6">
-          {myRsvps.length === 0 ? (
+          {!session ? (
+            <div className="glass-panel p-12 text-center max-w-lg mx-auto border-cyan-500/30 space-y-4">
+              <Ticket className="w-12 h-12 text-cyan-400 mx-auto" />
+              <h3 className="text-xl font-display font-bold text-white">Connect to View Your Passes</h3>
+              <p className="text-zinc-400 text-sm">
+                Connect your Midnight 1AM Wallet to sync and view your held event tickets.
+              </p>
+              <button
+                type="button"
+                onClick={connect}
+                disabled={isBusy}
+                className="btn-primary text-xs py-2.5 px-5"
+              >
+                {walletBusy ? 'Connecting...' : 'Connect 1AM Wallet'}
+              </button>
+            </div>
+          ) : myRsvps.length === 0 ? (
             <div className="glass-panel p-12 text-center max-w-lg mx-auto border-white/10 space-y-4">
               <Ticket className="w-12 h-12 text-zinc-600 mx-auto" />
               <h3 className="text-xl font-display font-bold text-white">No VIP Passes Held</h3>
@@ -479,7 +559,7 @@ export default function JoinPage() {
                 onClick={() => setActiveTab('join')}
                 className="btn-secondary text-xs py-2.5 px-5"
               >
-                Join an Event
+                Explore Events
               </button>
             </div>
           ) : (
@@ -530,7 +610,7 @@ export default function JoinPage() {
             </button>
           </div>
           {txHistory.map((tx) => (
-            <TxCard key={tx.id} tx={tx} network={session.config.networkId} />
+            <TxCard key={tx.id} tx={tx} network={session?.config?.networkId || 'preprod'} />
           ))}
         </div>
       )}
