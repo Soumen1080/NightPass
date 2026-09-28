@@ -46,7 +46,9 @@ type PartyRecord = {
 export default function OrganizePage() {
   const { session, busy: walletBusy, error: walletError, connect } = useWallet();
   const [activeTab, setActiveTab] = useState<'create' | 'manage'>('create');
-  const [contractAddress, setContractAddress] = useState('');
+  const [contractAddress, setContractAddress] = useState(
+    () => process.env.NEXT_PUBLIC_CONTRACT_ADDRESS?.trim() || ''
+  );
   
   // Form State
   const [partyName, setPartyName] = useState('');

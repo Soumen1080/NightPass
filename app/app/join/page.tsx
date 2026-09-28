@@ -59,7 +59,9 @@ type PublicParty = {
 export default function JoinPage() {
   const { session, busy: walletBusy, error: walletError, connect } = useWallet();
   const [activeTab, setActiveTab] = useState<'join' | 'tickets'>('join');
-  const [contractAddress, setContractAddress] = useState('');
+  const [contractAddress, setContractAddress] = useState(
+    () => process.env.NEXT_PUBLIC_CONTRACT_ADDRESS?.trim() || ''
+  );
   const [status, setStatus] = useState<Awaited<ReturnType<typeof fetchPartyState>> | null>(null);
   const [partyDetails, setPartyDetails] = useState<any | null>(null);
   
