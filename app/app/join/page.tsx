@@ -269,24 +269,36 @@ export default function JoinPage() {
 
       {/* Wallet Connection Helper Banner if Disconnected */}
       {!session && (
-        <div className="mb-8 p-4 sm:p-5 rounded-2xl bg-gradient-to-r from-purple-950/40 to-cyan-950/40 border border-cyan-500/30 flex flex-col sm:flex-row items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-cyan-500/20 border border-cyan-500/40 flex items-center justify-center text-cyan-300">
-              <Wallet className="w-5 h-5" />
+        <div className="mb-8 space-y-3">
+          <div className="p-4 sm:p-5 rounded-2xl bg-gradient-to-r from-purple-950/40 to-cyan-950/40 border border-cyan-500/30 flex flex-col sm:flex-row items-center justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-cyan-500/20 border border-cyan-500/40 flex items-center justify-center text-cyan-300">
+                <Wallet className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className="text-sm font-bold text-white">Wallet Not Connected</h3>
+                <p className="text-xs text-zinc-400">Connect your Midnight 1AM Wallet to generate your cryptographic proof and RSVP.</p>
+              </div>
             </div>
-            <div>
-              <h3 className="text-sm font-bold text-white">Wallet Not Connected</h3>
-              <p className="text-xs text-zinc-400">Connect your Midnight 1AM Wallet to generate your cryptographic proof and RSVP.</p>
-            </div>
+            <button
+              type="button"
+              onClick={connect}
+              disabled={isBusy}
+              className="btn-primary text-xs py-2.5 px-5 shrink-0"
+            >
+              {walletBusy ? 'Connecting...' : 'Connect 1AM Wallet'}
+            </button>
           </div>
-          <button
-            type="button"
-            onClick={connect}
-            disabled={isBusy}
-            className="btn-primary text-xs py-2.5 px-5 shrink-0"
-          >
-            {walletBusy ? 'Connecting...' : 'Connect 1AM Wallet'}
-          </button>
+
+          {walletError && (
+            <div role="alert" className="rounded-xl border border-rose-500/40 bg-rose-950/60 p-4 text-xs text-rose-200 flex items-start gap-3 backdrop-blur-md">
+              <AlertCircle className="w-4 h-4 text-rose-400 shrink-0 mt-0.5" />
+              <div className="leading-relaxed">
+                <p className="font-semibold text-rose-300">Wallet Connection Failed</p>
+                <p className="mt-1 font-mono text-[11px] opacity-90">{walletError}</p>
+              </div>
+            </div>
+          )}
         </div>
       )}
 

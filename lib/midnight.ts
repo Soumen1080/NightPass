@@ -1,7 +1,7 @@
 import { indexerPublicDataProvider } from '@midnight-ntwrk/midnight-js-indexer-public-data-provider';
 import { FetchZkConfigProvider } from '@midnight-ntwrk/midnight-js-fetch-zk-config-provider';
 import { createProofProvider } from '@midnight-ntwrk/midnight-js-types';
-import { setNetworkId } from '@midnight-ntwrk/midnight-js-network-id';
+import { setNetworkId, getNetworkId } from '@midnight-ntwrk/midnight-js-network-id';
 
 export type NetworkName = 'preprod' | 'preview';
 
@@ -11,14 +11,18 @@ export const DEFAULT_NETWORK: NetworkName =
 export const CRYPTO_NETWORK: NetworkName = DEFAULT_NETWORK;
 
 let _networkIdSet = false;
-export function ensureNetworkId() {
-  if (!_networkIdSet) {
-    try {
-      setNetworkId(CRYPTO_NETWORK);
-      _networkIdSet = true;
-    } catch (e) {
-      console.warn('Network ID already configured or error setting network ID:', e);
-    }
+export function ensureNetworkId(netId: NetworkName = DEFAULT_NETWORK) {
+  try {
+    const current = getNetworkId() as NetworkName;
+    if (current === netId) return;
+  } catch {
+    // Not set yet
+  }
+  try {
+    setNetworkId(netId);
+    _networkIdSet = true;
+  } catch (e) {
+    console.warn('Network ID already configured or error setting network ID:', e);
   }
 }
 
@@ -91,17 +95,28 @@ export async function detectWallet(timeoutMs = 4000): Promise<any> {
   const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {
     const w = (window as any).midnight;
-    if (w) {
+    if (w && typeof w === 'object') {
       if (w['1am']) return w['1am'];
       if (w['mnLace']) return w['mnLace'];
-      const first = Object.values(w)[0];
-      if (first) return first;
+      const entries = Object.entries(w);
+      if (entries.length > 0) {
+        // Look for any wallet with rdns or name containing 1am or lace
+        const match = entries.find(([_, val]: [string, any]) => 
+          val?.name?.toLowerCase()?.includes('1am') || 
+          val?.rdns?.toLowerCase()?.includes('1am')
+        );
+        if (match) return match[1];
+        // Otherwise fallback to first injected Midnight wallet provider
+        if (entries[0][1]) return entries[0][1];
+      }
     }
+    if ((window as any)['1am']) return (window as any)['1am'];
+
     await new Promise((r) => setTimeout(r, 200));
   }
 
   throw new Error(
-    'No Midnight wallet detected. Please install and unlock the 1AM or Lace wallet extension, then refresh.'
+    'No Midnight wallet detected. Please install and unlock the 1AM Wallet extension in this browser, make sure it has access to localhost, and refresh the page (F5).'
   );
 }
 
@@ -189,7 +204,7 @@ export async function createConnectedSession(
   zkPath: string,
   network: NetworkName = DEFAULT_NETWORK,
 ): Promise<ConnectedSession> {
-  ensureNetworkId();
+  ensureNetworkId(network);
 
   const config = { ...NETWORKS[network] };
   if (!config) {

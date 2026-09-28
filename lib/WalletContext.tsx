@@ -29,19 +29,51 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
     setError(null);
 
     try {
+      console.log('[NightPass] Attempting to connect 1AM / Midnight Wallet...');
       // Dynamic imports so the heavy SDK code is only loaded client-side
       // and never pulled into SSR bundles.
       const { detectWallet, createConnectedSession, DEFAULT_NETWORK } = await import('@/lib/midnight');
 
       const wallet = await detectWallet();
-      const api = await wallet.connect(DEFAULT_NETWORK);
-      const s = await createConnectedSession(api, ZK_PATH);
+      console.log('[NightPass] Wallet provider detected:', wallet);
+
+      let targetNetwork = DEFAULT_NETWORK;
+      let api: any;
+
+      if (typeof wallet.connect === 'function') {
+        try {
+          api = await wallet.connect(targetNetwork);
+        } catch (netErr: any) {
+          const errMsg = netErr?.message ?? String(netErr);
+          // Auto-adapt if wallet is on preview or preprod
+          if (errMsg.toLowerCase().includes('wallet is on') && errMsg.toLowerCase().includes('preview')) {
+            console.warn('[NightPass] 1AM Wallet is set to "preview". Auto-switching target network to preview...');
+            targetNetwork = 'preview';
+            api = await wallet.connect('preview');
+          } else if (errMsg.toLowerCase().includes('wallet is on') && errMsg.toLowerCase().includes('preprod')) {
+            console.warn('[NightPass] 1AM Wallet is set to "preprod". Auto-switching target network to preprod...');
+            targetNetwork = 'preprod';
+            api = await wallet.connect('preprod');
+          } else {
+            throw netErr;
+          }
+        }
+      } else if (typeof wallet.enable === 'function') {
+        api = await wallet.enable();
+      } else {
+        api = wallet;
+      }
+
+      console.log('[NightPass] Wallet connected. Initializing Midnight session on', targetNetwork);
+      const s = await createConnectedSession(api, ZK_PATH, targetNetwork);
+      console.log('[NightPass] Wallet session successfully established for:', s.unshieldedAddress);
       setSession(s);
     } catch (e: any) {
+      console.error('[NightPass] Wallet connection failed:', e);
       const msg = e?.message ?? String(e);
       // Make common errors more user-friendly
       if (msg.includes('User rejected') || msg.includes('user denied')) {
-        setError('Connection rejected by the wallet. Please try again.');
+        setError('Connection rejected in the wallet. Please try again.');
       } else {
         setError(msg);
       }
