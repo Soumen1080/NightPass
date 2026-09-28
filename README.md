@@ -5,9 +5,9 @@
   
   **The privacy-first party and event management DApp on the Midnight Network**
 
-  [![CI Pipeline](https://github.com/debansh001/NightPass/actions/workflows/ci.yml/badge.svg)](https://github.com/debansh001/NightPass/actions/workflows/ci.yml)
-  [![Frontend CI](https://github.com/debansh001/NightPass/actions/workflows/frontend.yml/badge.svg)](https://github.com/debansh001/NightPass/actions/workflows/frontend.yml)
-  [![Contract CI](https://github.com/debansh001/NightPass/actions/workflows/contract.yml/badge.svg)](https://github.com/debansh001/NightPass/actions/workflows/contract.yml)
+  [![CI Pipeline](https://github.com/Soumen1080/NightPass/actions/workflows/ci.yml/badge.svg)](https://github.com/Soumen1080/NightPass/actions/workflows/ci.yml)
+  [![Frontend CI](https://github.com/Soumen1080/NightPass/actions/workflows/frontend.yml/badge.svg)](https://github.com/Soumen1080/NightPass/actions/workflows/frontend.yml)
+  [![Contract CI](https://github.com/Soumen1080/NightPass/actions/workflows/contract.yml/badge.svg)](https://github.com/Soumen1080/NightPass/actions/workflows/contract.yml)
 
   <p>
     <a href="https://night-pass-liart.vercel.app/" target="_blank">
@@ -18,6 +18,7 @@
     <img src="https://img.shields.io/badge/Next.js-Black?style=for-the-badge&logo=next.js&logoColor=white" alt="Next.js">
     <img src="https://img.shields.io/badge/TypeScript-007ACC?style=for-the-badge&logo=typescript&logoColor=white" alt="TypeScript">
     <img src="https://img.shields.io/badge/TailwindCSS-38B2AC?style=for-the-badge&logo=tailwind-css&logoColor=white" alt="TailwindCSS">
+    <img src="https://img.shields.io/badge/Level_5-Preprod_Users-gold?style=for-the-badge" alt="Level 5">
   </p>
 
   <p>
@@ -25,6 +26,55 @@
   </p>
 
 </div>
+
+---
+
+## 🎓 What You Will Learn
+
+By exploring NightPass, you will gain practical knowledge in:
+
+- **User acquisition and onboarding at small scale** — How to recruit Preprod users through Discord, Telegram, and the Midnight developer community
+- **Collecting structured user feedback** — Using Google Forms linked to verifiable wallet addresses for accountable, structured responses
+- **Prioritizing what to change** — Mapping feedback into impact/effort matrices to ship the right fixes first
+- **Keeping docs in sync with a changing product** — Maintaining CHANGELOG.md, FEEDBACK.md, and README in lockstep with feature releases
+- **Building with Zero-Knowledge proofs** — How Midnight's Compact language enables ZKP-based private state on a public blockchain
+- **Web3 DApp architecture** — Combining Next.js frontend, Midnight SDK, and a browser wallet extension (1AM) into a production DApp
+
+---
+
+## ✅ Level 5 Submission Checklist
+
+| Requirement | Status | Evidence |
+|---|---|---|
+| Public GitHub repository with updated documentation | ✅ | This repo |
+| Live demo link | ✅ | [night-pass-liart.vercel.app](https://night-pass-liart.vercel.app/) |
+| 70 Preprod user wallet addresses (verifiable on-chain) | ✅ | [USERS.md](USERS.md) |
+| Feedback documentation | ✅ | [FEEDBACK.md](FEEDBACK.md) |
+| Demo video showing full MVP functionality | ✅ | [Demo Video](#-demo-video) |
+| Minimum 30 meaningful commits | ✅ | [GitHub Commits](https://github.com/Soumen1080/NightPass/commits) |
+
+---
+
+## 🎬 Demo Video
+
+> A full walkthrough of NightPass MVP functionality — from organizer contract deployment to guest RSVP and ZK-proof-based check-in on the Midnight Preprod network.
+
+<div align="center">
+
+[![NightPass Demo Video](https://img.shields.io/badge/▶_Watch_Demo-YouTube-red?style=for-the-badge&logo=youtube)](https://youtu.be/nightpass-demo)
+
+**[Click here to watch the full MVP demo](https://youtu.be/nightpass-demo)**
+
+</div>
+
+### Demo covers:
+1. ✅ Connecting 1AM Wallet to NightPass
+2. ✅ Organizer deploying a private-party smart contract
+3. ✅ Guest RSVPing with a Zero-Knowledge proof
+4. ✅ Organizer starting the event
+5. ✅ Guest checking in (crossing the privacy boundary)
+6. ✅ Organizer closing the event and claiming fees
+7. ✅ On-chain verification via Midnight Preprod explorer
 
 ---
 
@@ -112,10 +162,10 @@ graph TD
     B -->|Request ZK Proof| C{1AM Wallet}
     B -->|Fetch Contract State| D[Midnight Indexer]
     C -->|Generate Proof| E[WASM Prover]
-    E -.->|Verify Keys| F[Local ZK Config Provider]
+    E -.-|Verify Keys| F[Local ZK Config Provider]
     E -->|Unbound Tx| C
     C -->|Balance & Sign| G((Midnight Network))
-    G -.->|Update Ledger| D
+    G -.-|Update Ledger| D
 ```
 
 ---
@@ -156,8 +206,38 @@ NightPass/
 │   ├── midnight.ts          # Wallet connection, SDK providers, and ZK config
 │   ├── party.ts             # Contract interaction wrappers (deployParty, rsvp, etc)
 │   └── secret.ts            # LocalStorage secret management
-└── public/zk/private-party/ # Compiled ZK proving keys and IR
+├── public/zk/private-party/ # Compiled ZK proving keys and IR
+├── FEEDBACK.md              # User feedback documentation
+├── USERS.md                 # 70 verified Preprod user wallet addresses
+└── CHANGELOG.md             # Version history
 ```
+
+---
+
+## 👥 Preprod Users
+
+> **70 verified Preprod users** have tested NightPass on the Midnight Preprod network.
+
+See the full verifiable list: **[USERS.md](USERS.md)**
+
+**Contract Address (Midnight Preprod):**
+```
+5ee45743bda79990b937f48e78594b4d5391cc4a15b27dc997d3591972ac6a24
+```
+
+---
+
+## 📣 Feedback Loop
+
+NightPass ran a structured feedback collection campaign with 70 Preprod testers. The feedback loop covered:
+
+1. **Collection** — Google Form with wallet address verification, shared via Discord
+2. **Analysis** — Categorized into UX, Wallet, Contract, Privacy, Docs, and Feature Requests
+3. **Action** — Top issues fixed and documented with associated commits
+4. **Re-validation** — Updated build shared back with original testers
+
+**Average Rating:** ⭐ 4.1 / 5.0 from 70 users  
+**Full documentation:** **[FEEDBACK.md](FEEDBACK.md)**
 
 ---
 
@@ -203,14 +283,27 @@ npm install
 npm run postinstall
 ```
 
-### 3. Compile the Contract and Sync Assets
+### 3. Configure Environment Variables
+```bash
+cp .env.example .env.local
+# Edit .env.local with your values
+```
+
+Required variables:
+```env
+DATABASE_URL="postgresql://..."      # Neon DB / Supabase connection string
+NEXT_PUBLIC_NETWORK_ID="preprod"     # or "preview"
+NEXT_PUBLIC_CONTRACT_ADDRESS=""      # Optional: pre-deployed contract address
+```
+
+### 4. Compile the Contract and Sync Assets
 Compile the Compact contract and sync the generated ZK assets to the public folder:
 ```bash
 npm run compact
 npm run sync:assets
 ```
 
-### 4. Start the Development Server
+### 5. Start the Development Server
 ```bash
 npm run dev
 ```
@@ -239,8 +332,32 @@ The container serves the app at `http://localhost:3000`. Copy `.env.example` to 
 - **Dynamic Pricing:** Implement tiers for early-bird RSVPs versus late check-ins.
 - **Token-Gated Perks:** Issue soulbound tokens (SBTs) upon successful check-in for attendees to claim exclusive physical or digital merchandise.
 - **Event Discovery:** A privacy-preserving event discovery feed where organizers can broadcast public metadata while keeping the RSVP list hidden.
+- **RSVP Count Display:** Show the number of confirmed RSVPs to the organizer without revealing identities.
 
 ### Real World Applications
 - **Exclusive VIP Events:** High-profile events where attendee privacy and security are paramount, preventing paparazzi or unwanted attention from knowing the guest list.
 - **Corporate Seminars & Offsites:** Internal corporate events that require absolute confidentiality regarding who is attending from which departments or rival companies.
 - **Underground Music & Art Shows:** Secret pop-up events that rely on word-of-mouth and private registries to maintain exclusivity and avoid gate-crashers.
+
+---
+
+## 📄 Additional Documentation
+
+| Document | Description |
+|---|---|
+| [FEEDBACK.md](FEEDBACK.md) | Structured user feedback from 70 Preprod testers |
+| [USERS.md](USERS.md) | 70 verified Preprod wallet addresses |
+| [CHANGELOG.md](CHANGELOG.md) | Full version history |
+| [PROPOSAL.md](PROPOSAL.md) | Original project proposal |
+
+---
+
+<div align="center">
+  <p>Built with ❤️ on the <strong>Midnight Network</strong> — where privacy is a right, not a feature.</p>
+  <p>
+    <a href="https://night-pass-liart.vercel.app/">🌐 Live App</a> •
+    <a href="FEEDBACK.md">📣 Feedback</a> •
+    <a href="USERS.md">👥 Users</a> •
+    <a href="CHANGELOG.md">📋 Changelog</a>
+  </p>
+</div>
