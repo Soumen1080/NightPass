@@ -10,11 +10,18 @@
   [![Contract CI](https://github.com/debansh001/NightPass/actions/workflows/contract.yml/badge.svg)](https://github.com/debansh001/NightPass/actions/workflows/contract.yml)
 
   <p>
+    <a href="https://night-pass-liart.vercel.app/" target="_blank">
+      <img src="https://img.shields.io/badge/Live_Demo-Vercel-000000?style=for-the-badge&logo=vercel&logoColor=white" alt="Live Demo">
+    </a>
     <img src="https://img.shields.io/badge/Midnight-Network-purple?style=for-the-badge" alt="Midnight Network">
     <img src="https://img.shields.io/badge/Compact-Language-blue?style=for-the-badge" alt="Compact">
     <img src="https://img.shields.io/badge/Next.js-Black?style=for-the-badge&logo=next.js&logoColor=white" alt="Next.js">
     <img src="https://img.shields.io/badge/TypeScript-007ACC?style=for-the-badge&logo=typescript&logoColor=white" alt="TypeScript">
     <img src="https://img.shields.io/badge/TailwindCSS-38B2AC?style=for-the-badge&logo=tailwind-css&logoColor=white" alt="TailwindCSS">
+  </p>
+
+  <p>
+    🌐 <strong>Live Application:</strong> <a href="https://night-pass-liart.vercel.app/">https://night-pass-liart.vercel.app/</a>
   </p>
 
 </div>
@@ -171,7 +178,17 @@ npm run test:local
 
 ---
 
-## 🚀 How to Run Locally
+## 🚀 Deployment & Local Setup
+
+### 🌐 Live Production Application
+The application is deployed on Vercel and fully connected to the Midnight Network:
+* **Live App URL:** [https://night-pass-liart.vercel.app/](https://night-pass-liart.vercel.app/)
+* **Network Compatibility:** Midnight Preprod & Preview (Auto-adapting)
+* **Recommended Browser Wallet:** 1AM Wallet Extension
+
+---
+
+### 💻 Running Locally
 
 ### 1. Set up the 1AM Wallet
 1. Download and install the **1AM Wallet** extension for your browser.
