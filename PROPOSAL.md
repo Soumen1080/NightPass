@@ -1,5 +1,7 @@
 # NightPass - Project Proposal
 
+> **Status:** ✅ Level 5 Complete — 70 Preprod users onboarded, feedback loop documented, live at [night-pass-liart.vercel.app](https://night-pass-liart.vercel.app/)
+
 ## Project Overview
 
 **NightPass** is a privacy-first party and event management decentralized application built on the Midnight Network. It solves the critical problem of public exposure in traditional event ticketing and RSVP systems by leveraging Zero-Knowledge (ZK) proofs and the unique privacy-preserving capabilities of the Midnight blockchain.
@@ -22,14 +24,36 @@ This model ensures that the guest list remains entirely hidden until the moment 
 2. **Organizer Dashboard:** Easily deploy new event contracts with custom entry fees and maximum guest limits.
 3. **Automated State Transitions:** The smart contract automatically progresses through states (`NOT_STARTED` -> `READY` -> `STARTED` -> `DOORS_CLOSED`) based on guest capacity and organizer actions.
 4. **Fee Collection:** Secure, unshielded `tNIGHT` token transfers for entry fees, allowing organizers to easily claim collected funds after the event.
+5. **Structured Feedback System:** In-app feedback modal with ratings, categories, and API endpoint — closing the user feedback loop.
+6. **User Onboarding at Scale:** 70 verified Preprod users documented and on-chain.
 
 ## Technology Stack
 
 - **Smart Contracts:** Midnight Compact Language
-- **Frontend Framework:** Next.js (React)
-- **Styling:** Tailwind CSS
+- **Frontend Framework:** Next.js 15 (React 19)
+- **Styling:** Tailwind CSS v4
 - **Wallet Integration:** 1AM Wallet for Midnight Network
+- **Database:** Prisma ORM + Neon DB (PostgreSQL) / Supabase compatible
+- **Deployment:** Vercel (Live: [night-pass-liart.vercel.app](https://night-pass-liart.vercel.app/))
+- **CI/CD:** GitHub Actions
+
+## Deployed Contract
+
+**Midnight Preprod Contract Address:**
+```
+5ee45743bda79990b937f48e78594b4d5391cc4a15b27dc997d3591972ac6a24
+```
+
+## Level 5 Achievements
+
+| Requirement | Evidence |
+|---|---|
+| 70 Preprod users | [USERS.md](USERS.md) |
+| Feedback loop | [FEEDBACK.md](FEEDBACK.md) |
+| Updated documentation | [README.md](README.md) |
+| 30+ meaningful commits | See GitHub |
+| Live demo | [night-pass-liart.vercel.app](https://night-pass-liart.vercel.app/) |
 
 ## Team
 
-- **Debansh001** (Developer)
+- **Soumen1080** (Developer)
