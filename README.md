@@ -47,46 +47,41 @@ This separation ensures that the blockchain only stores cryptographic commitment
 
 ---
 
-## 📸 Product Screenshots
+## 📸 Product Screenshots & On-Chain Verification
 
+### 1. Organizer Studio & Live Ticket Preview
 <div align="center">
-  <img src="assets/PROJECT/landing-page.png" alt="Landing Page" width="800">
-  <p><i>The landing page welcoming users to the NightPass privacy-first application.</i></p>
+  <img src="assets/PROJECT/organizer-studio.png" alt="Organizer Studio & Live Ticket Preview" width="850">
+  <p><i>Organizer Studio: Configure event capacity, entry fees, view live interactive holographic ticket passes, and monitor real-time Midnight transaction logs.</i></p>
+</div>
+
+<br>
+
+### 2. 1AM Wallet DApp Authorization
+<div align="center">
+  <img src="assets/PROJECT/1am-wallet-connection.png" alt="1AM Wallet Connection Request" width="850">
+  <p><i>Seamless non-custodial connection and permission request with the Midnight 1AM Wallet.</i></p>
+</div>
+
+<br>
+
+### 3. On-Chain Ledger Verification (1AM Explorer)
+<div align="center">
+  <img src="assets/PROJECT/1am-explorer-tx.png" alt="Midnight 1AM Explorer On-Chain Verification" width="850">
+  <p><i>On-chain transaction verification on Midnight Preprod showing token outputs, DUST registration events, and zero-knowledge ledger state inclusion.</i></p>
+</div>
+
+<br>
+
+### 4. Smart Contract Compilation & Proving Keys
+<div align="center">
+  <img src="assets/CONTRACT/contract-deploy.png" alt="Contract Deployment Output" width="850">
+  <p><i>Compact contract deployment output verifying circuit verification keys and address bindings.</i></p>
   
   <br>
-
-  <img src="assets/PROJECT/onboarding.png" alt="Onboarding" width="800">
-  <p><i>Seamless onboarding flow for both organizers and attendees.</i></p>
   
-  <br>
-
-  <img src="assets/PROJECT/acess-portal.png" alt="Access Portal" width="800">
-  <p><i>The access portal where users can choose their role to manage or join events.</i></p>
-
-  <br>
-
-  <img src="assets/PROJECT/organiser-dashboard.png" alt="Organizer Dashboard" width="800">
-  <p><i>The Organizer Dashboard where hosts can deploy new party contracts with entry fees and deadlines.</i></p>
-
-  <br>
-
-  <img src="assets/PROJECT/organizer-postdeploy.png" alt="Organizer Post Deploy" width="800">
-  <p><i>Post-deployment view allowing the organizer to track RSVPs, start the party, and claim fees.</i></p>
-
-  <br>
-
-  <img src="assets/PROJECT/joiner-dashboard.png" alt="Joiner Dashboard" width="800">
-  <p><i>The Joiner Dashboard where attendees can privately RSVP to an event.</i></p>
-
-  <br>
-
-  <img src="assets/PROJECT/joiner-going.png" alt="Joiner Going" width="800">
-  <p><i>Status confirmation showing the attendee is successfully RSVP'd while retaining full privacy.</i></p>
-
-  <br>
-
-  <img src="assets/PROJECT/joiner-checkin.png" alt="Joiner Check-In" width="800">
-  <p><i>The Check-In phase where attendees cross the privacy boundary to reveal their identity and pay the fee.</i></p>
+  <img src="assets/CONTRACT/keys.png" alt="ZK Proving and Verification Keys" width="850">
+  <p><i>Generated Zero-Knowledge Intermediate Representation (ZKIR) proving and verifier key assets.</i></p>
 </div>
 
 ---
