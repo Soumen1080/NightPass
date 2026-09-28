@@ -198,7 +198,27 @@ export default function TxCard({ tx, network }: { tx: TxRecord; network: string 
         {/* Error Details */}
         {isError && tx.error && (
           <div className="mt-3 p-3 rounded-lg bg-black/50 border border-rose-500/20 text-xs font-mono text-rose-300 leading-relaxed break-words">
-            {tx.error}
+            <div>{tx.error}</div>
+            {(tx.error.toLowerCase().includes('dust') || tx.error.toLowerCase().includes('balance failed')) && (
+              <div className="mt-2.5 pt-2.5 border-t border-rose-500/30 text-[11px] text-zinc-300 font-sans leading-normal">
+                <span className="font-bold text-amber-300">💡 Why this happened:</span> In Midnight, transactions require <b>DUST</b> to pay for network gas. Your 1AM wallet currently has <code className="text-amber-200">0.0 DUST</code>.
+                <div className="mt-1.5 flex flex-wrap gap-2 items-center">
+                  <span>1. Get free testnet tokens:</span>
+                  <a
+                    href={`https://faucet.${netPrefix}.midnight.network`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1 text-cyan-400 hover:text-cyan-300 underline font-semibold"
+                  >
+                    <span>Midnight {netPrefix === 'preview' ? 'Preview' : 'Preprod'} Faucet</span>
+                    <ExternalLink className="w-3 h-3" />
+                  </a>
+                </div>
+                <div className="mt-1">
+                  <span>2. Or in your 1AM wallet, click <b>YOUR DUST</b> to generate DUST from your NIGHT tokens.</span>
+                </div>
+              </div>
+            )}
           </div>
         )}
       </div>
