@@ -153,19 +153,22 @@ export default function JoinPage() {
   useEffect(() => { void refreshRsvps(); }, [refreshRsvps]);
   useEffect(() => { void refresh(); }, [refresh]);
 
-  async function guard(label: string, fn: () => Promise<{ contractAddress?: string } | void>) {
+  async function guard(label: string, fn: () => Promise<{ contractAddress?: string; txHash?: string } | string | void>) {
     setBusy(true);
     setActionLabel(label);
     const txId = Math.random().toString(36).substring(7);
     try {
       const result = await fn();
       await refresh();
+      const addr = typeof result === 'object' ? result?.contractAddress : contractAddress;
+      const txHash = typeof result === 'object' ? result?.txHash : typeof result === 'string' ? result : undefined;
       setTxHistory(prev => [{
         id: txId,
         type: label,
         status: 'success',
         timestamp: new Date(),
-        contractAddress: (result as any)?.contractAddress || contractAddress,
+        contractAddress: addr || contractAddress,
+        txHash,
       }, ...prev]);
     } catch (e) {
       setTxHistory(prev => [{ id: txId, type: label, status: 'error', error: String(e), timestamp: new Date() }, ...prev]);
@@ -187,7 +190,7 @@ export default function JoinPage() {
       saveSecret('attendee', contractAddress, secret);
     }
     
-    await rsvp(session, contractAddress, userAddressFromSession(session), secret);
+    const txHash = await rsvp(session, contractAddress, userAddressFromSession(session), secret);
     setHasRsvpdLocal(true);
 
     if (partyDetails?.id) {
@@ -207,6 +210,7 @@ export default function JoinPage() {
         console.warn('Failed to record RSVP in database:', dbErr);
       }
     }
+    return { contractAddress, txHash };
   });
 
   const onCheckIn = () => guard('Door Check-In & Fee Settlement', async () => {
@@ -217,7 +221,8 @@ export default function JoinPage() {
     if (!contractAddress) return;
     const secret = loadSecret('attendee', contractAddress);
     if (!secret) throw new Error('RSVP first — no attendee secret found for this contract');
-    await checkIn(session, contractAddress, userAddressFromSession(session), secret);
+    const txHash = await checkIn(session, contractAddress, userAddressFromSession(session), secret);
+    return { contractAddress, txHash };
   });
 
   return (

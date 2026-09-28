@@ -105,19 +105,22 @@ export default function OrganizePage() {
     setDeadline(localISOTime);
   };
 
-  async function guard(label: string, fn: () => Promise<{ contractAddress?: string } | void>) {
+  async function guard(label: string, fn: () => Promise<{ contractAddress?: string; txHash?: string } | string | void>) {
     setBusy(true);
     setDeployingLabel(label);
     const txId = Math.random().toString(36).substring(7);
     try {
       const result = await fn();
       await refresh();
+      const addr = typeof result === 'object' ? result?.contractAddress : contractAddress;
+      const txHash = typeof result === 'object' ? result?.txHash : typeof result === 'string' ? result : undefined;
       setTxHistory(prev => [{
         id: txId,
         type: label,
         status: 'success',
         timestamp: new Date(),
-        contractAddress: (result as any)?.contractAddress || contractAddress,
+        contractAddress: addr || contractAddress,
+        txHash,
       }, ...prev]);
     } catch (e) {
       setTxHistory(prev => [{ id: txId, type: label, status: 'error', error: String(e), timestamp: new Date() }, ...prev]);
@@ -133,7 +136,7 @@ export default function OrganizePage() {
       return;
     }
     const secret = generateSecret();
-    const addr = await deployParty(session, Number(partySize), Number(entryFee), secret);
+    const { contractAddress: addr, txHash } = await deployParty(session, Number(partySize), Number(entryFee), secret);
     
     await fetch('/api/parties', {
       method: 'POST',
@@ -152,28 +155,31 @@ export default function OrganizePage() {
     saveSecret('organizer', addr, secret);
     await refreshParties();
     setActiveTab('manage');
-    return { contractAddress: addr };
+    return { contractAddress: addr, txHash };
   });
 
   const onStartParty = () => guard('Open Doors & Start Party', async () => {
     if (!session || !contractAddress) return;
     const secret = loadSecret('organizer', contractAddress);
     if (!secret) throw new Error('No organizer secret found for this contract in this browser');
-    await startParty(session, contractAddress, secret);
+    const txHash = await startParty(session, contractAddress, secret);
+    return { contractAddress, txHash };
   });
 
   const onCloseEntry = () => guard('Close Event Doors', async () => {
     if (!session || !contractAddress) return;
     const secret = loadSecret('organizer', contractAddress);
     if (!secret) throw new Error('No organizer secret found for this contract in this browser');
-    await closeEntry(session, contractAddress, secret);
+    const txHash = await closeEntry(session, contractAddress, secret);
+    return { contractAddress, txHash };
   });
 
   const onClaimFees = () => guard('Claim Collected Fees', async () => {
     if (!session || !contractAddress) return;
     const secret = loadSecret('organizer', contractAddress);
     if (!secret) throw new Error('No organizer secret found for this contract in this browser');
-    await claimFees(session, contractAddress, userAddressFromSession(session), secret);
+    const txHash = await claimFees(session, contractAddress, userAddressFromSession(session), secret);
+    return { contractAddress, txHash };
   });
 
   const copyContract = (addr: string) => {

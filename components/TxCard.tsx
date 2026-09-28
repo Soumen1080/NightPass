@@ -19,6 +19,7 @@ export type TxRecord = {
   error?: string;
   timestamp: Date;
   contractAddress?: string;
+  txHash?: string;
 };
 
 /** High-tech animated ZK proving loading card */
@@ -66,28 +67,32 @@ export function TxLoadingCard({ label }: { label: string }) {
 }
 
 export default function TxCard({ tx, network }: { tx: TxRecord; network: string }) {
-  const [copied, setCopied] = useState(false);
+  const [copiedAddr, setCopiedAddr] = useState(false);
+  const [copiedHash, setCopiedHash] = useState(false);
   const isError = tx.status === 'error';
   const isSuccess = tx.status === 'success';
 
-  const explorerBase =
-    network === 'preview'
-      ? 'https://explorer.preview.midnight.network'
-      : network === 'preprod'
-      ? 'https://explorer.preprod.midnight.network'
-      : null;
-
-  const explorerUrl = explorerBase
-    ? tx.contractAddress
-      ? `${explorerBase}/contracts/${tx.contractAddress}`
-      : explorerBase
+  // NightScan Explorer URLs
+  const netPrefix = network === 'preview' ? 'preview' : 'preprod';
+  const txExplorerUrl = tx.txHash
+    ? `https://nightscan.io/tx/${tx.txHash}`
+    : null;
+  const contractExplorerUrl = tx.contractAddress
+    ? `https://nightscan.io/contract/${tx.contractAddress}`
     : null;
 
   const copyContract = () => {
     if (!tx.contractAddress) return;
     navigator.clipboard.writeText(tx.contractAddress);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+    setCopiedAddr(true);
+    setTimeout(() => setCopiedAddr(false), 2000);
+  };
+
+  const copyHash = () => {
+    if (!tx.txHash) return;
+    navigator.clipboard.writeText(tx.txHash);
+    setCopiedHash(true);
+    setTimeout(() => setCopiedHash(false), 2000);
   };
 
   return (
@@ -138,32 +143,56 @@ export default function TxCard({ tx, network }: { tx: TxRecord; network: string 
           </span>
         </div>
 
+        {/* Transaction Hash */}
+        {tx.txHash && isSuccess && (
+          <div className="mt-2.5 flex items-center gap-2 flex-wrap">
+            <span className="text-xs text-zinc-400">Tx Hash:</span>
+            <button
+              type="button"
+              onClick={copyHash}
+              className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-black/40 border border-cyan-500/30 hover:border-cyan-400/60 text-[11px] font-mono text-cyan-300 transition-colors"
+            >
+              <span>{tx.txHash.slice(0, 10)}...{tx.txHash.slice(-8)}</span>
+              {copiedHash ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3 text-zinc-500" />}
+            </button>
+            {txExplorerUrl && (
+              <a
+                href={txExplorerUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1 text-[11px] text-cyan-400 hover:text-cyan-300 transition-colors"
+              >
+                <span>NightScan</span>
+                <ExternalLink className="w-3 h-3" />
+              </a>
+            )}
+          </div>
+        )}
+
         {/* Contract Address preview if available */}
         {tx.contractAddress && isSuccess && (
-          <div className="mt-2.5 flex items-center gap-2 flex-wrap">
+          <div className="mt-2 flex items-center gap-2 flex-wrap">
             <span className="text-xs text-zinc-400">Contract Address:</span>
             <button
               type="button"
               onClick={copyContract}
-              className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-black/40 border border-white/10 hover:border-brand/40 text-[11px] font-mono text-purple-300 transition-colors"
+              className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-black/40 border border-purple-500/30 hover:border-brand/40 text-[11px] font-mono text-purple-300 transition-colors"
             >
               <span>{tx.contractAddress.slice(0, 10)}...{tx.contractAddress.slice(-8)}</span>
-              {copied ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3 text-zinc-500" />}
+              {copiedAddr ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3 text-zinc-500" />}
             </button>
+            {contractExplorerUrl && (
+              <a
+                href={contractExplorerUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1 text-[11px] text-purple-400 hover:text-purple-300 transition-colors"
+              >
+                <span>NightScan</span>
+                <ExternalLink className="w-3 h-3" />
+              </a>
+            )}
           </div>
-        )}
-
-        {/* Explorer Link */}
-        {explorerUrl && isSuccess && (
-          <a
-            href={explorerUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center gap-1.5 mt-2.5 text-xs text-cyan-400 hover:text-cyan-300 transition-colors font-medium"
-          >
-            <span>View on Midnight Explorer</span>
-            <ExternalLink className="w-3 h-3" />
-          </a>
         )}
 
         {/* Error Details */}

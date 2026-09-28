@@ -25,12 +25,17 @@ function setSize(value: unknown): number {
   return 0;
 }
 
+export type DeployResult = {
+  contractAddress: string;
+  txHash: string;
+};
+
 export async function deployParty(
   session: ConnectedSession,
   partySize: number,
   entryFeeStars: number,
   organizerSecret: Uint8Array,
-): Promise<string> {
+): Promise<DeployResult> {
   const cc = await getCompiledContract();
   const deployTxData = await (createUnprovenDeployTx as any)(
     {
@@ -47,7 +52,9 @@ export async function deployParty(
   );
 
   const contractAddress = deployTxData.public.contractAddress;
-  await (submitTxAsync as any)(session.providers, { unprovenTx: deployTxData.private.unprovenTx });
+  const txHash = await (submitTxAsync as any)(session.providers, { unprovenTx: deployTxData.private.unprovenTx });
+  console.log('[NightPass] Deploy transaction submitted! Tx Hash:', txHash, 'Contract Address:', contractAddress);
+
   await session.providers.privateStateProvider.setContractAddress(contractAddress);
   await session.providers.privateStateProvider.set(PRIVATE_STATE_ID, {});
   await session.providers.privateStateProvider.setSigningKey(
@@ -62,7 +69,7 @@ export async function deployParty(
     console.warn('Initial post-deploy poll warning (contract will index shortly):', pollErr);
   }
 
-  return contractAddress;
+  return { contractAddress, txHash: typeof txHash === 'string' ? txHash : String(txHash) };
 }
 
 async function call(
@@ -70,7 +77,7 @@ async function call(
   contractAddress: string,
   circuitId: string,
   args: unknown[],
-) {
+): Promise<string> {
   const cc = await getCompiledContract();
 
   await session.providers.privateStateProvider.setContractAddress(contractAddress);
@@ -79,13 +86,15 @@ async function call(
     await session.providers.privateStateProvider.set(PRIVATE_STATE_ID, {});
   }
 
-  await (submitCallTxAsync as any)(session.providers, {
+  const txHash = await (submitCallTxAsync as any)(session.providers, {
     compiledContract: cc,
     contractAddress,
     circuitId,
     args,
     privateStateId: PRIVATE_STATE_ID,
   });
+  console.log(`[NightPass] Circuit call "${circuitId}" submitted! Tx Hash:`, txHash);
+  return typeof txHash === 'string' ? txHash : String(txHash);
 }
 
 export const rsvp = (session: ConnectedSession, contractAddress: string, userAddress: { bytes: Uint8Array }, attendeeSecret: Uint8Array) =>
