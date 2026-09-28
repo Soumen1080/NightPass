@@ -7,4 +7,3 @@ node_modules
 /prisma/migrations/
 # /contract/src/managed/
 # /public/zk/
-.env.local

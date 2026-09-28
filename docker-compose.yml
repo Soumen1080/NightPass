@@ -1,0 +1,19 @@
+services:
+  nightpass:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        DATABASE_URL: ${DATABASE_URL}
+    image: nightpass:latest
+    container_name: nightpass
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      - DATABASE_URL=${DATABASE_URL}
+      - NEXT_PUBLIC_NETWORK_ID=${NEXT_PUBLIC_NETWORK_ID:-preprod}
+      - PORT=3000
+      - HOSTNAME=0.0.0.0
+    env_file:
+      - .env

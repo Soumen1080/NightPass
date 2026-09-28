@@ -6,9 +6,21 @@ import { setNetworkId } from '@midnight-ntwrk/midnight-js-network-id';
 export type NetworkName = 'preprod' | 'preview';
 
 export const DEFAULT_NETWORK: NetworkName =
-  (process.env.NEXT_PUBLIC_NETWORK_ID as NetworkName) || 'preview';
-export const CRYPTO_NETWORK = 'preview';
-setNetworkId(CRYPTO_NETWORK);
+  (typeof process !== 'undefined' && process.env?.NEXT_PUBLIC_NETWORK_ID as NetworkName) || 'preview';
+
+// CRYPTO_NETWORK must match DEFAULT_NETWORK — previously hardcoded to 'preview'
+// which caused a mismatch when .env.local set NEXT_PUBLIC_NETWORK_ID=preprod.
+export const CRYPTO_NETWORK: NetworkName = DEFAULT_NETWORK;
+
+// Do NOT call setNetworkId at module level — it uses SDK internals that can
+// crash during SSR / static generation.  We call it lazily in createConnectedSession.
+let _networkIdSet = false;
+function ensureNetworkId() {
+  if (!_networkIdSet) {
+    setNetworkId(CRYPTO_NETWORK);
+    _networkIdSet = true;
+  }
+}
 
 export interface NetworkConfig {
   networkId: NetworkName;
@@ -63,13 +75,31 @@ export function fromHex(hex: string): Uint8Array {
   return out;
 }
 
-export async function detectWallet(): Promise<any> {
-  const w = (window as any).midnight;
-  if (!w) throw new Error('No Midnight-compatible wallet found in window.midnight');
-  if (w['1am']) return w['1am'];
-  const first = Object.values(w)[0];
-  if (!first) throw new Error('window.midnight is present but empty');
-  return first;
+/**
+ * Detect and return the Midnight wallet API from window.midnight.
+ * Includes a configurable timeout so the UI doesn't hang forever
+ * if the wallet extension hasn't injected yet.
+ */
+export async function detectWallet(timeoutMs = 5000): Promise<any> {
+  if (typeof window === 'undefined') {
+    throw new Error('Wallet detection can only run in the browser');
+  }
+
+  // Some wallets inject slightly after DOMContentLoaded.  Give them a moment.
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    const w = (window as any).midnight;
+    if (w) {
+      if (w['1am']) return w['1am'];
+      const first = Object.values(w)[0];
+      if (first) return first;
+    }
+    await new Promise((r) => setTimeout(r, 200));
+  }
+
+  throw new Error(
+    'No Midnight-compatible wallet found. Please install and unlock the 1AM wallet extension, then refresh the page.',
+  );
 }
 
 // ─── private state provider ─────────────────────────────────────────────────
@@ -97,11 +127,17 @@ export async function pollForState(
   contractAddress: string,
   { retries = 20, delayMs = 1500 }: { retries?: number; delayMs?: number } = {},
 ): Promise<string> {
+  let lastError: string | null = null;
+
   for (let i = 0; i < retries; i++) {
     try {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 10000);
+
       const res = await fetch(queryUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        signal: controller.signal,
         body: JSON.stringify({
           query: `
             query ContractState($address: String!) {
@@ -111,6 +147,8 @@ export async function pollForState(
           variables: { address: contractAddress },
         }),
       });
+
+      clearTimeout(timeout);
       
       if (res.ok) {
         const text = await res.text();
@@ -118,15 +156,25 @@ export async function pollForState(
           const json = JSON.parse(text);
           const state = json?.data?.contractAction?.state;
           if (state) return state as string;
+
+          // Capture GraphQL-level errors
+          if (json?.errors?.length) {
+            lastError = json.errors[0].message;
+          }
         }
+      } else {
+        lastError = `HTTP ${res.status}`;
       }
-    } catch (e) {
-      console.warn('pollForState fetch error:', e);
-      // swallow error and wait for the next polling iteration
+    } catch (e: any) {
+      lastError = e?.message ?? String(e);
+      console.warn(`pollForState attempt ${i + 1}/${retries} error:`, lastError);
     }
     await new Promise((r) => setTimeout(r, delayMs));
   }
-  throw new Error(`Timed out waiting for contract state at ${contractAddress}`);
+  throw new Error(
+    `Timed out waiting for contract state at ${contractAddress}` +
+    (lastError ? ` (last error: ${lastError})` : ''),
+  );
 }
 
 // ─── createConnectedSession ──────────────────────────────────────────────────
@@ -136,8 +184,14 @@ export async function createConnectedSession(
   zkPath: string,
   network: NetworkName = DEFAULT_NETWORK,
 ): Promise<ConnectedSession> {
-  setNetworkId(CRYPTO_NETWORK);
+  // Ensure the crypto network ID is set before any SDK operations
+  ensureNetworkId();
+
   const config = NETWORKS[network];
+  if (!config) {
+    throw new Error(`Unknown network "${network}". Expected "preprod" or "preview".`);
+  }
+
   let coinPublicKeyStr = '';
   let encPublicKeyStr = '';
   let unshieldedAddress = '';
@@ -169,9 +223,15 @@ export async function createConnectedSession(
         encPublicKeyStr = state.encryptionPublicKey ?? coinPublicKeyStr;
         unshieldedAddress = state.address ?? state.unshieldedAddress;
       }
+
+      if (!unshieldedAddress) {
+        throw new Error('Wallet returned an empty address. Is the wallet fully synced?');
+      }
+
       break;
     } catch (err: any) {
       if (retries === 1) throw err;
+      console.warn(`Wallet not ready, retrying… (${retries - 1} left)`, err?.message);
       await new Promise((r) => setTimeout(r, 1000));
     }
   }

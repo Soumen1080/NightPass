@@ -40,6 +40,9 @@ export async function GET(request: Request) {
         where: { contractAddress },
         include: { rsvps: true },
       });
+      if (!party) {
+        return NextResponse.json(null, { status: 404 });
+      }
       return NextResponse.json(party);
     }
 

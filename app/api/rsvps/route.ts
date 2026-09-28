@@ -21,7 +21,11 @@ export async function POST(request: Request) {
     });
 
     return NextResponse.json(rsvp);
-  } catch (error) {
+  } catch (error: any) {
+    // Handle unique constraint violation (user already RSVP'd to this party)
+    if (error?.code === 'P2002') {
+      return NextResponse.json({ error: 'Already RSVP\'d to this party' }, { status: 409 });
+    }
     console.error('Error creating RSVP:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }

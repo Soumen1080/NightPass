@@ -17,6 +17,17 @@ RUN apt-get update \
   && rm -rf /var/lib/apt/lists/*
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
+
+# Ensure the DATABASE_URL is available at build time for Prisma generate.
+# For production, this should be passed as a build arg or set as a default.
+ARG DATABASE_URL=""
+ENV DATABASE_URL=${DATABASE_URL}
+
+# NEXT_PUBLIC_* vars must be baked in at build time for client-side code.
+ARG NEXT_PUBLIC_NETWORK_ID="preprod"
+ENV NEXT_PUBLIC_NETWORK_ID=${NEXT_PUBLIC_NETWORK_ID}
+
+RUN npx prisma generate
 RUN npm run build
 
 FROM node:20-bookworm-slim AS runner
@@ -37,6 +48,14 @@ RUN groupadd --system --gid 1001 nodejs \
 COPY --from=builder /app/public ./public
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
+
+# Copy Prisma client and schema — required at runtime for DB queries
+COPY --from=builder --chown=nextjs:nodejs /app/node_modules/.prisma ./node_modules/.prisma
+COPY --from=builder --chown=nextjs:nodejs /app/node_modules/@prisma ./node_modules/@prisma
+COPY --from=builder --chown=nextjs:nodejs /app/prisma ./prisma
+
+# Copy Midnight SDK native modules (WASM etc.) that the standalone output
+# may not bundle automatically.
 COPY --from=builder --chown=nextjs:nodejs /app/node_modules/@midnight-ntwrk/ledger-v8 ./node_modules/@midnight-ntwrk/ledger-v8
 COPY --from=builder --chown=nextjs:nodejs /app/node_modules/@midnight-ntwrk/onchain-runtime-v3 ./node_modules/@midnight-ntwrk/onchain-runtime-v3
 
