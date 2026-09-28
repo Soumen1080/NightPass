@@ -74,6 +74,8 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
       // Make common errors more user-friendly
       if (msg.includes('User rejected') || msg.includes('user denied')) {
         setError('Connection rejected in the wallet. Please try again.');
+      } else if (msg.toLowerCase().includes('wallet is syncing') || msg.toLowerCase().includes('wait for sync')) {
+        setError('1AM Wallet is still syncing blocks. In your 1AM extension tab, click the orange [RE-AUTHENTICATE] button and wait for the "FINALIZING..." blue bar to finish, then click Connect again.');
       } else {
         setError(msg);
       }
