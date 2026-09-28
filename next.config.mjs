@@ -3,6 +3,31 @@ import { join } from 'node:path';
 
 const nextConfig = {
   output: 'standalone',
+
+  // ─── Performance: Compiler options ──────────────────────────────────────
+  compiler: {
+    // Remove console.log in production (keeps console.error and console.warn)
+    removeConsole: process.env.NODE_ENV === 'production' ? { exclude: ['error', 'warn'] } : false,
+  },
+
+  // ─── Security Headers ────────────────────────────────────────────────────
+  async headers() {
+    return [
+      {
+        source: '/(.*)',
+        headers: [
+          { key: 'X-Frame-Options', value: 'DENY' },
+          { key: 'X-Content-Type-Options', value: 'nosniff' },
+          { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
+          {
+            key: 'Permissions-Policy',
+            value: 'camera=(), microphone=(), geolocation=()',
+          },
+        ],
+      },
+    ];
+  },
+
   webpack: (config, { isServer }) => {
     config.experiments = { 
       ...config.experiments, 
